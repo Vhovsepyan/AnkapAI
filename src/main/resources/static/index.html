@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ankap Trading Bot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f4f6f9;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 420px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        .row {
+            margin-bottom: 10px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .value {
+            float: right;
+        }
+
+        .running {
+            color: green;
+            font-weight: bold;
+        }
+
+        .stopped {
+            color: red;
+            font-weight: bold;
+        }
+
+        button {
+            margin-top: 15px;
+            margin-right: 10px;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📈 Ankap Trading Bot</h1>
+
+<div class="card">
+    <div class="row">
+        <span class="label">Status:</span>
+        <span id="status" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Symbol:</span>
+        <span id="symbol" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Position:</span>
+        <span id="position" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Quantity:</span>
+        <span id="quantity" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Avg Price:</span>
+        <span id="avgPrice" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Daily PnL:</span>
+        <span id="pnl" class="value">–</span>
+    </div>
+
+    <div class="row">
+        <span class="label">Last Signal:</span>
+        <span id="lastSignal" class="value">–</span>
+    </div>
+
+    <button onclick="startBot()">Start</button>
+    <button onclick="stopBot()">Stop</button>
+</div>
+
+<script>
+    async function loadStatus() {
+        try {
+            const res = await fetch('/api/bot/status');
+            const data = await res.json();
+
+            document.getElementById('status').innerText =
+                data.tradingActive ? 'RUNNING' : 'STOPPED';
+            document.getElementById('status').className =
+                data.tradingActive ? 'value running' : 'value stopped';
+
+            document.getElementById('symbol').innerText = data.symbol;
+
+            document.getElementById('position').innerText =
+                data.position.side;
+
+            document.getElementById('quantity').innerText =
+                data.position.quantity ?? '-';
+
+            document.getElementById('avgPrice').innerText =
+                data.position.avgPrice ?? '-';
+
+            document.getElementById('pnl').innerText =
+                data.dailyRealizedPnl.toFixed(2);
+
+            document.getElementById('lastSignal').innerText =
+                data.lastSignalAction ?? '-';
+
+        } catch (e) {
+            console.error('Failed to load status', e);
+        }
+    }
+
+    async function startBot() {
+        await fetch('/api/bot/start', { method: 'POST' });
+        loadStatus();
+    }
+
+    async function stopBot() {
+        await fetch('/api/bot/stop', { method: 'POST' });
+        loadStatus();
+    }
+
+    // auto refresh
+    loadStatus();
+    setInterval(loadStatus, 2000);
+</script>
+
+</body>
+</html>

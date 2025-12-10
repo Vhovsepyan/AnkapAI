@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>AnkapAI Chat</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 16px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #chat {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 60vh;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            background: #d1e7ff;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .assistant {
+            background: #e9ecef;
+            margin-right: auto;
+        }
+
+        #input-area {
+            display: flex;
+            gap: 8px;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            resize: vertical;
+            min-height: 40px;
+            max-height: 120px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background: #0d6efd;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        #status {
+            font-size: 0.85rem;
+            color: #555;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+<h1>AnkapAI Chat</h1>
+
+<div id="chat"></div>
+
+<div id="input-area">
+    <textarea id="message-input" placeholder="Type your message..."></textarea>
+    <button id="send-btn">Send</button>
+</div>
+<div id="status"></div>
+
+<script>
+    const chatDiv = document.getElementById('chat');
+    const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusDiv = document.getElementById('status');
+
+    // Simple in-memory history for this browser tab
+    const history = [];
+
+    function appendMessage(role, content) {
+        const div = document.createElement('div');
+        div.classList.add('message', role === 'user' ? 'user' : 'assistant');
+        div.textContent = content;
+        chatDiv.appendChild(div);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const text = input.value.trim();
+        if (!text) return;
+
+        // Show user message in UI
+        appendMessage('user', text);
+
+        // Add to history as user
+        history.push({ role: 'user', content: text });
+
+        // Clear input & disable button while sending
+        input.value = '';
+        input.focus();
+        sendBtn.disabled = true;
+        statusDiv.textContent = 'Thinking...';
+
+        try {
+            const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: text,
+                    history: history
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                statusDiv.textContent = 'Error: ' + response.status + ' ' + errorText;
+                sendBtn.disabled = false;
+                return;
+            }
+
+            const data = await response.json();
+
+            // Show assistant reply
+            appendMessage('assistant', data.reply);
+
+            // Add to history as assistant
+            history.push({ role: 'assistant', content: data.reply });
+
+            statusDiv.textContent = 'Model: ' + (data.model || 'unknown')
+                + ', finishReason: ' + (data.finishReason || 'none');xxx
+        } catch (e) {
+            console.error(e);
+            statusDiv.textContent = 'Request failed: ' + e;
+        } finally {
+            sendBtn.disabled = false;
+        }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+</script>
+</body>
+</html>
