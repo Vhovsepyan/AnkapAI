@@ -13,5 +13,7 @@ data class BotStatusDto(
     val lastTradeStatus: String?,
     val lastTradeSide: String?,
     val lastTradeQty: Double?,
-    val lastTradePrice: Double?
+    val lastTradePrice: Double?,
+    val lastPrice: Double?,
+    val unrealizedPnl: Double?
 )

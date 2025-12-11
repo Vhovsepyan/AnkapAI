@@ -32,6 +32,10 @@ dependencies {
 	// HTTP client (WebClient)
 	implementation("org.springframework.boot:spring-boot-starter-webflux")
 
+	// Data JPA
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	runtimeOnly("com.h2database:h2")
+
 	// Kotlin + Jackson
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib")

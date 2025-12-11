@@ -142,12 +142,12 @@ class InMemoryPositionService(
             currentDay = today
             dailyRealizedPnl = 0.0
         }
-        // DEV TEST HOOK: force negative PnL if enabled
-        if (forceDailyLoss) {
-            if (dailyRealizedPnl > -5.0) {
-                dailyRealizedPnl = -5.0
-                logger.warn("DEV: forcing dailyRealizedPnl to {}", dailyRealizedPnl)
-            }
-        }
+//        // DEV TEST HOOK: force negative PnL if enabled
+//        if (forceDailyLoss) {
+//            if (dailyRealizedPnl > -5.0) {
+//                dailyRealizedPnl = -5.0
+//                logger.warn("DEV: forcing dailyRealizedPnl to {}", dailyRealizedPnl)
+//            }
+//        }
     }
 }

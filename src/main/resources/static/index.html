@@ -88,13 +88,37 @@
     </div>
 
     <div class="row">
+        <span class="label">Unrealized PnL:</span>
+        <span id="unrealizedPnl" class="value">–</span>
+    </div>
+
+    <div class="row">
         <span class="label">Last Signal:</span>
         <span id="lastSignal" class="value">–</span>
     </div>
 
     <button onclick="startBot()">Start</button>
     <button onclick="stopBot()">Stop</button>
+
+    <h2>Recent Trades</h2>
+    <table id="tradesTable" border="1" cellspacing="0" cellpadding="4">
+        <thead>
+        <tr>
+            <th>Time</th>
+            <th>Side</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Realized PnL</th>
+        </tr>
+        </thead>
+        <tbody id="tradesBody">
+        </tbody>
+    </table>
 </div>
+
+
+
 
 <script>
     async function loadStatus() {
@@ -102,47 +126,86 @@
             const res = await fetch('/api/bot/status');
             const data = await res.json();
 
-            document.getElementById('status').innerText =
-                data.tradingActive ? 'RUNNING' : 'STOPPED';
-            document.getElementById('status').className =
-                data.tradingActive ? 'value running' : 'value stopped';
+            // Status
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = data.tradingActive ? 'RUNNING' : 'STOPPED';
+            statusEl.className = data.tradingActive ? 'value running' : 'value stopped';
 
+            // Basic fields
             document.getElementById('symbol').innerText = data.symbol;
-
-            document.getElementById('position').innerText =
-                data.position.side;
-
+            document.getElementById('position').innerText = data.position.side;
             document.getElementById('quantity').innerText =
-                data.position.quantity ?? '-';
-
+                data.position.quantity != null ? data.position.quantity.toFixed(6) : '-';
             document.getElementById('avgPrice').innerText =
-                data.position.avgPrice ?? '-';
+                data.position.avgPrice != null ? data.position.avgPrice.toFixed(2) : '-';
 
+            // Daily realized PnL
             document.getElementById('pnl').innerText =
-                data.dailyRealizedPnl.toFixed(2);
+                data.dailyRealizedPnl != null ? data.dailyRealizedPnl.toFixed(2) : '-';
 
-            document.getElementById('lastSignal').innerText =
-                data.lastSignalAction ?? '-';
+            // NEW: Last Price
+            document.getElementById('lastPrice').innerText =
+                data.lastPrice != null ? data.lastPrice.toFixed(2) : '-';
 
+            // NEW: Unrealized PnL
+            document.getElementById('unrealizedPnl').innerText =
+                data.unrealizedPnl != null ? data.unrealizedPnl.toFixed(2) : '-';
+
+            // Last signal
+            document.getElementById('lastSignal').innerText = data.lastSignalAction ?? '-';
         } catch (e) {
             console.error('Failed to load status', e);
         }
     }
 
+    async function loadTrades() {
+        try {
+            const res = await fetch('/api/bot/trades');
+            const trades = await res.json();
+            const tbody = document.getElementById('tradesBody');
+            tbody.innerHTML = '';
+
+            trades.forEach(t => {
+                const tr = document.createElement('tr');
+                const time = new Date(t.timestamp).toLocaleTimeString();
+
+                tr.innerHTML = `
+                <td>${time}</td>
+                <td>${t.side}</td>
+                <td>${t.executedQty.toFixed(6)}</td>
+                <td>${t.avgPrice != null ? t.avgPrice.toFixed(2) : '-'}</td>
+                <td>${t.status}</td>
+                <td>${t.realizedPnl != null ? t.realizedPnl.toFixed(2) : '-'}</td>
+            `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error('Failed to load trades', e);
+        }
+    }
+
     async function startBot() {
         await fetch('/api/bot/start', { method: 'POST' });
-        loadStatus();
+        await loadStatus();
+        await loadTrades();
     }
 
     async function stopBot() {
         await fetch('/api/bot/stop', { method: 'POST' });
-        loadStatus();
+        await loadStatus();
+        await loadTrades();
     }
 
-    // auto refresh
-    loadStatus();
-    setInterval(loadStatus, 2000);
+    function refreshAll() {
+        loadStatus();
+        loadTrades();
+    }
+
+    // auto refresh both status and trades
+    refreshAll();
+    setInterval(refreshAll, 2000);
 </script>
+
 
 </body>
 </html>

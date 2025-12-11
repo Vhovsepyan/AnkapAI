@@ -6,6 +6,7 @@ import com.ankap.tradingbot.market.MarketDataService
 import com.ankap.tradingbot.portfolio.PositionService
 import com.ankap.tradingbot.risk.RiskService
 import com.ankap.tradingbot.strategy.StrategyService
+import com.ankap.tradingbot.trade.TradeHistoryService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -18,6 +19,7 @@ class BotRunner(
     private val riskService: RiskService,
     private val executionService: ExecutionService,
     private val positionService: PositionService,
+    private val tradeHistoryService: TradeHistoryService,
     @Value("\${bot.symbol:BTCUSDT}")
     private val symbol: String
 ) {
@@ -31,6 +33,9 @@ class BotRunner(
 
     @Volatile
     private var lastTrade: OrderResult? = null
+
+    @Volatile
+    private var lastSnapshot: MarketSnapshot? = null
 
     fun start() {
         if (tradingActive.compareAndSet(false, true)) {
@@ -62,6 +67,21 @@ class BotRunner(
         val dailyPnl = positionService.getDailyRealizedPnl()
         val signal = lastSignal
         val trade = lastTrade
+        val snapshot = lastSnapshot
+
+        val lastPrice = snapshot?.lastPrice
+
+        // Unrealized PnL = (lastPrice - entryPrice) * quantity, if long
+        val unrealizedPnl = if (
+            lastPrice != null &&
+            position.side == PositionSide.LONG &&
+            position.avgPrice != null &&
+            position.quantity > 0.0
+        ) {
+            (lastPrice - position.avgPrice!!) * position.quantity
+        } else {
+            null
+        }
 
         return com.ankap.tradingbot.api.BotStatusDto(
             tradingActive = isActive(),
@@ -74,11 +94,16 @@ class BotRunner(
             lastTradeStatus = trade?.status?.name,
             lastTradeSide = trade?.side?.name,
             lastTradeQty = trade?.executedQty,
-            lastTradePrice = trade?.avgPrice
+            lastTradePrice = trade?.avgPrice,
+
+            lastPrice = lastPrice,
+            unrealizedPnl = unrealizedPnl
         )
     }
 
+
     private fun handleSnapshot(snapshot: MarketSnapshot) {
+        lastSnapshot = snapshot
         logger.debug("Received snapshot: {}", snapshot.lastPrice)
 
         val signal = strategyService.onMarketSnapshot(snapshot)
@@ -108,7 +133,10 @@ class BotRunner(
         val result = executionService.execute(decision.orderRequest)
         logger.info("Trade executed: {}", result)
 
-        lastTrade = result
+        // record trade before we update position (to compute PnL using old position)
+        tradeHistoryService.recordTrade(result)
+
         positionService.onOrderExecuted(result)
+        lastTrade = result
     }
 }
