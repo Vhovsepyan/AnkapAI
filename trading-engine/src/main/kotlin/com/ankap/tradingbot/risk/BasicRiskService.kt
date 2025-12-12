@@ -54,7 +54,11 @@ class BasicRiskService(
             )
         }
 
-        val qty = targetNotional / snapshot.lastPrice
+        val position = positionService.getPosition(snapshot.symbol)
+
+        if (signal.action == Action.SELL && position.quantity <= 0.0) {
+            return RiskDecision(false, reason = "No position to close")
+        }
 
         val side = when (signal.action) {
             Action.BUY -> Side.BUY
@@ -65,17 +69,31 @@ class BasicRiskService(
             }
         }
 
+        val qty = when (signal.action) {
+            Action.BUY -> targetNotional / snapshot.lastPrice
+            Action.SELL -> position.quantity   // close entire position
+            else -> 0.0
+        }
+
+        if (qty <= 0.0) {
+            return RiskDecision(
+                allowed = false,
+                reason = "Invalid quantity: $qty"
+            )
+        }
+
         val order = OrderRequest(
             symbol = snapshot.symbol,
             side = side,
             quantity = qty,
             type = OrderType.MARKET,
-            price = snapshot.lastPrice //added this
+            price = snapshot.lastPrice
         )
 
         return RiskDecision(
             allowed = true,
             orderRequest = order
         )
+
     }
 }

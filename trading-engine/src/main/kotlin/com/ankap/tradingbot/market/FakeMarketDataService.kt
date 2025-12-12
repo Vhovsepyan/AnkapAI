@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -22,7 +23,8 @@ class FakeMarketDataService : MarketDataService {
     private val running = AtomicBoolean(false)
 
     // single-threaded executor for generating data
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+    @Volatile
+    private var executor: ScheduledExecutorService? = null
 
     // state for synthetic price series
     private var currentPrice: Double = 50_000.0     // start price
@@ -32,8 +34,14 @@ class FakeMarketDataService : MarketDataService {
 
     override fun start() {
         if (running.compareAndSet(false, true)) {
+            candles.clear()
             logger.info("Starting FakeMarketDataService...")
-            executor.scheduleAtFixedRate(
+
+            // ✅ create a fresh executor every start
+            val ex = Executors.newSingleThreadScheduledExecutor()
+            executor = ex
+
+            ex.scheduleAtFixedRate(
                 { generateAndDispatchSnapshot() },
                 0,
                 1,
@@ -45,7 +53,10 @@ class FakeMarketDataService : MarketDataService {
     override fun stop() {
         if (running.compareAndSet(true, false)) {
             logger.info("Stopping FakeMarketDataService...")
-            executor.shutdownNow()
+
+            // ✅ shutdown current executor and clear it
+            executor?.shutdownNow()
+            executor = null
         }
     }
 

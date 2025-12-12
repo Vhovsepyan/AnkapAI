@@ -13,6 +13,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.LinkedHashMap
+import java.util.concurrent.ScheduledExecutorService
 import kotlin.math.max
 import kotlin.math.min
 
@@ -27,7 +28,8 @@ class BinanceMarketDataService(
 
     private val listeners = CopyOnWriteArrayList<(MarketSnapshot) -> Unit>()
     private val running = AtomicBoolean(false)
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+    @Volatile
+    private var executor: ScheduledExecutorService? = null
     private val objectMapper = ObjectMapper()
 
     private val candlesWindowSize = 200
@@ -35,8 +37,13 @@ class BinanceMarketDataService(
 
     override fun start() {
         if (running.compareAndSet(false, true)) {
+            candles.clear()
             logger.info("Starting BinanceMarketDataService for symbol={} (interval=1m)", symbol)
-            executor.scheduleAtFixedRate(
+
+            val ex = Executors.newSingleThreadScheduledExecutor()
+            executor = ex
+
+            ex.scheduleAtFixedRate(
                 { fetchAndDispatch() },
                 0,
                 1,
@@ -48,7 +55,9 @@ class BinanceMarketDataService(
     override fun stop() {
         if (running.compareAndSet(true, false)) {
             logger.info("Stopping BinanceMarketDataService...")
-            executor.shutdownNow()
+
+            executor?.shutdownNow()
+            executor = null
         }
     }
 
