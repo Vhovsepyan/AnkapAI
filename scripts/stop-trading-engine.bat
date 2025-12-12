@@ -1,0 +1,3 @@
+echo Stopping TRAIDING-ENGINE services...
+taskkill /F /IM java.exe >nul 2>&1
+timeout /t 2 >nul

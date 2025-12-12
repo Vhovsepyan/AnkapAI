@@ -38,3 +38,34 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+data/
+*.mv.db
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+ai-engine/.env

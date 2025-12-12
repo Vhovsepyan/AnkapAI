@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service
 import kotlin.math.max
 
 @Service
-@Primary
 class EmaCrossoverStrategyService(
 
     @Value("\${bot.strategy.ema.short:9}")

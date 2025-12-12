@@ -2,38 +2,33 @@ package com.ankap.tradingbot.strategy
 
 import com.ankap.tradingbot.ai.AiClient
 import com.ankap.tradingbot.ai.AiPredictionRequest
-import com.ankap.tradingbot.common.Action
-import com.ankap.tradingbot.common.MarketSnapshot
-import com.ankap.tradingbot.common.TradeSignal
+import com.ankap.tradingbot.common.*
 import com.ankap.tradingbot.portfolio.PositionService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Service
 
 @Service
+@Primary
 class AiStrategyService(
     private val aiClient: AiClient,
     private val positionService: PositionService,
-    private val emaFallbackStrategy: EmaCrossoverStrategyService, // we will still reuse EMA
-    @Value("\${bot.symbol:BTCUSDT}") private val symbol: String,
-    @Value("\${ai.strategy.enabled:false}") private val aiEnabled: Boolean
-) {
+    private val emaFallbackStrategy: EmaCrossoverStrategyService,
+    @Value("\${ai.strategy.enabled:false}") private val aiEnabled: Boolean,
+    @Value("\${ai.strategy.min-confidence:0.6}")
+    private val minConfidence: Double
+) : StrategyService {
 
     private val logger = LoggerFactory.getLogger(AiStrategyService::class.java)
 
-    /**
-     * Helper method – NOT used by BotRunner directly yet.
-     * BotRunner still uses EmaCrossoverStrategyService via StrategyService.
-     */
-    fun decide(snapshot: MarketSnapshot): TradeSignal {
-        if (!aiEnabled) {
-            // If AI is disabled, just delegate to EMA
-            return emaFallbackStrategy.onMarketSnapshot(snapshot)
-        }
+
+    override fun onMarketSnapshot(snapshot: MarketSnapshot): TradeSignal {
+        if (!aiEnabled) return emaFallbackStrategy.onMarketSnapshot(snapshot)
 
         val position = positionService.getPosition(snapshot.symbol)
 
-        val request = AiPredictionRequest(
+        val req = AiPredictionRequest(
             symbol = snapshot.symbol,
             timestamp = System.currentTimeMillis(),
             lastPrice = snapshot.lastPrice,
@@ -41,30 +36,31 @@ class AiStrategyService(
             position = position
         )
 
-        val response = aiClient.predictSync(request)
-
-        if (response == null) {
-            logger.warn("AI prediction failed or returned null; falling back to EMA strategy")
+        val resp = aiClient.predictSync(req)
+        if (resp == null) {
+            logger.warn("AI returned null; fallback to EMA")
             return emaFallbackStrategy.onMarketSnapshot(snapshot)
         }
 
-        val action = when (response.action.uppercase()) {
+        val action = when (resp.action.uppercase()) {
             "BUY" -> Action.BUY
             "SELL" -> Action.SELL
             else -> Action.HOLD
         }
 
-        val signal = TradeSignal(
+        if (action != Action.HOLD && resp.confidence < minConfidence) {
+            logger.info("AI decision below min-confidence ({} < {}), forcing HOLD", resp.confidence, minConfidence)
+            return TradeSignal(snapshot.symbol, Action.HOLD, resp.confidence)
+        }
+
+        logger.info(
+            "AI decision: symbol={}, action={}, confidence={}, extra={}",
+            snapshot.symbol, action, resp.confidence, resp.extraInfo
+        )
+        return TradeSignal(
             symbol = snapshot.symbol,
             action = action,
-            confidence = response.confidence
+            confidence = resp.confidence
         )
-
-        logger.debug(
-            "AI strategy decision: action={}, confidence={}, extra={}",
-            action, response.confidence, response.extraInfo
-        )
-
-        return signal
     }
 }

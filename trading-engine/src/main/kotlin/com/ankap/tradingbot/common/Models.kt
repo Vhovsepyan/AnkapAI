@@ -44,6 +44,7 @@ data class OrderRequest(
     val symbol: String,
     val side: Side,
     val quantity: Double,
+    val price: Double,
     val type: OrderType = OrderType.MARKET,
     val stopLoss: Double? = null,
     val takeProfit: Double? = null

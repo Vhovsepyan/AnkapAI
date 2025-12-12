@@ -21,7 +21,7 @@ class LoggingExecutionService : ExecutionService {
             side = order.side,
             status = OrderStatus.FILLED,
             executedQty = order.quantity,
-            avgPrice = null
+            avgPrice = order.price
         )
     }
 }

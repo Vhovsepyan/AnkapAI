@@ -69,7 +69,8 @@ class BasicRiskService(
             symbol = snapshot.symbol,
             side = side,
             quantity = qty,
-            type = OrderType.MARKET
+            type = OrderType.MARKET,
+            price = snapshot.lastPrice //added this
         )
 
         return RiskDecision(
